@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Image from Bits</title>
+    <style>
+        .mom {
+            display: flex;
+            width: 50%;
+        }
+
+        .child {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            min-height: 50px;
+        }
+
+        .child:hover {
+            outline: 5px solid #000000;
+            z-index: 999;
+        }
+    </style>
+</head>
+
+<body>
+    <!--<canvas id="imageCanvas"></canvas>-->
+    <label>Width: </label><input id="width" type="number"><br>
+    <label>Height: </label><input id="height" type="number"><br>
+    <label>Width: </label><input id="bpp" type="number">
+
+    <h1>Drawing</h1>
+    <div id="pixels"></div>
+    <h1>Current Color</h1>
+    <div id="color" class="child" style="background-color: #000000;"></div>
+    <h1>Possble colors</h1>
+    <div id="colors"></div>
+    <h1>Binary</h1>
+    <textarea id="binary" style="height: 500px; width: 1000px;"></textarea>
+    <button id="update">Update</button>
+    <script>
+        function parseBitData(data) {
+            const bits = data.replace(/\s+/g, '');
+            const height = parseInt(bits.slice(0, 8), 2);
+            const width = parseInt(bits.slice(8, 16), 2);
+            const bpp = parseInt(bits.slice(16, 24), 2);
+            const colorBits = bpp / 3; // Bits per color channel
+            console.log(height, width, bpp, colorBits);
+
+            const pixelData = bits.slice(24);
+            const pixels = [];
+
+            // Maximum value for colorBits bits
+            const maxColorValue = (1 << colorBits) - 1;
+            const scaleFactor = 255 / maxColorValue; // Scaling factor to convert to 8-bit (0-255)
+
+            for (let i = 0; i < pixelData.length; i += bpp) {
+                const pixel = pixelData.substring(i, i + bpp);
+
+                // Split pixel into color channels
+                const rR = pixel.slice(0, colorBits);
+                const gR = pixel.slice(colorBits, 2 * colorBits);
+                const bR = pixel.slice(2 * colorBits, 3 * colorBits);
+
+                const r = parseInt(rR, 2);
+                const g = parseInt(gR, 2);
+                const b = parseInt(bR, 2);
+
+                // Scale pixel values to 8-bit range (0-255)
+                const rS = Math.floor(r * scaleFactor);
+                const gS = Math.floor(g * scaleFactor);
+                const bS = Math.floor(b * scaleFactor);
+
+                pixels.push([rS, gS, bS]);
+            }
+
+            return { height, width, pixels, maxColorValue, scaleFactor, colorBits };
+        }
+
+        function drawImageOnCanvas(height, width, pixels, scaleFactor = 1) {
+            const canvas = document.getElementById('imageCanvas');
+            canvas.width = width * scaleFactor;
+            canvas.height = height * scaleFactor;
+
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.createImageData(width * scaleFactor, height * scaleFactor);
+            const data = imageData.data;
+
+            // Fill the scaled image data
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (width * y + x) * 4;
+                    const scaledX = x * scaleFactor;
+                    const scaledY = y * scaleFactor;
+                    const [r, g, b] = pixels[y * width + x] || [0, 0, 0];
+
+                    for (let dy = 0; dy < scaleFactor; dy++) {
+                        for (let dx = 0; dx < scaleFactor; dx++) {
+                            const scaledIdx = ((scaledY + dy) * width * scaleFactor + (scaledX + dx)) * 4;
+                            data[scaledIdx] = r;
+                            data[scaledIdx + 1] = g;
+                            data[scaledIdx + 2] = b;
+                            data[scaledIdx + 3] = 255; // Alpha
+                        }
+                    }
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+        }
+
+        function drawImageOnHTML(height, width, pixels) {
+            const pixelsElm = document.getElementById("pixels")
+            pixelsElm.innerHTML = ""
+
+            let c = 0
+            let cParrent = document.createElement("div")
+            cParrent.classList.add("mom")
+            pixelsElm.append(cParrent)
+            for (let index = 0; index < height * width; index++) {
+                let i = pixels[index] ?? [0, 0, 0]
+                let pixelElm = document.createElement("div")
+                pixelElm.classList.add("child")
+                pixelElm.style["background-color"] = `rgb(${i[0]},${i[1]},${i[2]})`
+                cParrent.append(pixelElm)
+
+                c++;
+                if (c == width) {
+                    c = 0
+                    cParrent = document.createElement("div")
+                    cParrent.classList.add("mom")
+                    pixelsElm.append(cParrent)
+                }
+            }
+        }
+
+        function drawColorsOnHTML(max, scale) {
+            console.log(max, scale)
+            const colorsElm = document.getElementById("colors")
+            colorsElm.innerHTML = ""
+            let t = 0
+            for (let r = 0; r < max + 1; r++) {
+                let rR = Math.floor(scale * r)
+
+                let holder = document.createElement("div")
+                holder.classList.add("mom")
+                colorsElm.append(holder)
+                for (let g = 0; g < max + 1; g++) {
+                    let rG = Math.floor(scale * g)
+                    for (let b = 0; b < max + 1; b++) {
+                        t++;
+                        let rB = Math.floor(scale * b)
+                        let pixel = document.createElement("div")
+                        pixel.style["background-color"] = `rgb(${rR},${rG},${rB})`
+                        pixel.classList.add("child")
+                        holder.append(pixel)
+                    }
+                }
+            }
+            console.log("t:", t)
+        }
+
+        function HTMLToScaledRGB(scale) {
+            const pixelsElm = document.getElementById("pixels")
+            let colors = []
+            for (let moms of pixelsElm.childNodes) {
+                for (let pixels of moms.childNodes) {
+                    let rgb = pixels.style["background-color"].replace("rgb(", "").replace(")", "").split(", ")
+                    rgb = rgb.map(v => { return Math.round(v / scale) })
+                    colors.push(rgb)
+                }
+            }
+            return colors
+        }
+
+        function ScaledRGBToBinary(scaledRGB, max) {
+            let bin = []
+            for (let pixel of scaledRGB) {
+                let r = dec2bin(pixel[0], max)
+                let g = dec2bin(pixel[1], max)
+                let b = dec2bin(pixel[2], max)
+                bin.push(`${r}${g}${b}`)
+            }
+            return bin
+        }
+
+        function dec2bin(dec, max) {
+            let bin = (dec >>> 0).toString(2);
+            return bin.padStart(max, "0")
+        }
+
+
+        // Sample bit data (replace with your actual data)
+        const bitData = `00011110
+00011110
+00001001
+000111111 000111111 000111111 000111111 000111111 000111111 000111111 101000111 101000111 101000111 101000111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 101000111 101000111 101000111 101000111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 000000000 000000000 000000000 000000000 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 101000111 101000111 101000111 101000111 101000111 101000111 101000111 101000111 101000111 101000111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111101 111111101 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 000000000 111111011 000000000 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111011 111111011 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 101011001 110100000 101011010 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111100000 111100000 110100010 111100010 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 100001100 100001110 100001110 100001110 100001110 100001100 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 100001100 100001110 100001110 100001110 100001110 100001100 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 100001101 100001101 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111110 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 100001101 100001101 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111110 000000000 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 100001101 100001101 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111100 100001101 100001101 111111011 111111101 000000000 000000000 000000000 000000000 000000000 000111111 000111111 000111111 000111111 000111111 000111111 111111101 111111101 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 100001101 100001101 111111011 111111011 111111101 111111100 111111101 111111101 111111100 000000000 000000000 000000000 000000000 000000000 000000000 111111101 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111011 111111100 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111100 111111011 111111101 111111101 111111101 111111100 111111100 111111101 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 111111100 111111011 111111100 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111100 111111011 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111011 111111011 111111100 111111011 111111011 111111011 111111011 000000000 000000000 111111011 111111011 111111011 111111011 111111011 111111100 111111011 111111011 111111011 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 111111100 111111011 111111011 111111100 111111011 111111101 111111101 000000000 000000000 111111011 111111011 111111011 111111011 111111011 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111011 111111100 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111101 111111101 000000000 000000000 000000000 111111101 111111011 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 111111011 111111011 111111100 111111011 111111011 111111011 111111011 111111011 111111011 111111101 111111101 111111101 111111011 111111011 111111011 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111101 111111011 111111011 111111100 111111011 111111011 111111011 111111100 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111011 111111101 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111111100 111111101 111111101 111111101 111111100 111111101 111111101 111111101 111111100 111111101 111111101 111111101 111111101 111111101 111111101 111111100 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 000000000 110011001 110011001 110011001 110011010 000000000 000000000 000000000 000000000 110011001 110011001 110011001 110011010 000000000 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111011001 111011001 111011001 111011001 000000000 000111111 000111111 000000000 111011001 111011001 111011001 111011001 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111100001 111100001 111100001 111100001 111100001 000000000 000111111 000000000 111100000 111100001 111100001 111100000 111100000 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000000000 111100001 111100001 111100001 111100001 111100001 000000000 000111111 000000000 111100001 111100001 111100001 111100001 111100001 000000000 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111 000111111`;
+
+        const widthElm = document.getElementById("width")
+        const heightElm = document.getElementById("height")
+        const bppElm = document.getElementById("bpp")
+
+        function renderBin(bin, firstRun = false) {
+            // Parse bit data and draw the image
+            const { height, width, pixels, maxColorValue, scaleFactor, colorBits } = parseBitData(bin);
+
+            if (firstRun) {
+                widthElm.value = width
+                heightElm.value = height
+                bppElm.value = colorBits * 3
+            }
+
+            console.log("info", height, width, pixels, maxColorValue, scaleFactor, colorBits)
+            // drawImageOnCanvas(height, width, pixels, 26);
+            drawImageOnHTML(height, width, pixels)
+            drawColorsOnHTML(maxColorValue, scaleFactor)
+        }
+        renderBin(bitData, true)
+
+
+        const currentColorElm = document.getElementById("color")
+        const binaryElm = document.getElementById("binary")
+        binaryElm.value = bitData
+
+
+        const updateElm = document.getElementById("update")
+
+        function updateThings() {
+            let bin = updateBin()
+            console.log("updated bin", bin)
+            renderBin(bin)
+        }
+
+        function updateBin() {
+            const { scaleFactor, colorBits } = parseBitData(binaryElm.value);
+            let colorsRGB = HTMLToScaledRGB(scaleFactor)
+            console.log(colorsRGB)
+            let binary = ScaledRGBToBinary(colorsRGB, colorBits)
+            let bin = `${dec2bin(widthElm.value, 8)}\n${dec2bin(heightElm.value, 8)}\n${dec2bin(bppElm.value, 8)}\n${binary.join(" ")}`
+            binaryElm.value = bin
+            return bin
+        }
+
+        updateElm.onclick = () => {
+            renderBin(binaryElm.value)
+        }
+
+        widthElm.onchange = updateThings
+        heightElm.onchange = updateThings
+        bppElm.onchange = updateThings
+
+        document.addEventListener('click', function (evt) {
+            let type = evt.target?.parentElement?.parentElement?.id
+            if (!type) return
+            switch (type) {
+                case "colors": {
+                    currentColorElm.style["background-color"] = evt.target.style["background-color"]
+                    break
+                }
+                case "pixels": {
+                    evt.target.style["background-color"] = currentColorElm.style["background-color"]
+                    updateBin()
+                    break
+                }
+            }
+        }, false);
+
+    </script>
+</body>
+
+</html>
