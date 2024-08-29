@@ -2,6 +2,8 @@
 
 This uses HTML elements, the code.org editor uses a canvas which is better but its simpler if I used div elements
 
+Open the editor [HERE](https://airplanegobrr-trash.github.io/comp-sci/Unit1/Leason8/pixelDrawer.html)
+
 ![alt text](pictures/image.png)
 ![alt text](pictures/image-1.png)
 ![alt text](pictures/image-2.png)
