@@ -9,6 +9,7 @@ But you CAN grab images and put them on a canvas from ANY server!
 We can "abuse" this by returning the data of an HTTP as a picture.
 
 This is an example of what a returned response looks like
+
 ![Bunch of blocks of colors](example.png)
 
 # How does it work?
