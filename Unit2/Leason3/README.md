@@ -24,6 +24,10 @@ drawImageURL("http://localhost:3000/?date="+date+"&url=https://icanhazdadjoke.co
 ```
 (KEEP IN MIND THIS WON'T WORK, we are using localhost. Code.org servers can't connect to OUR local computer)
 
+The FULL applab script can be found [here](./applab.js)
+
+Make sure to set the `serverURL` to a hosted version of this project!
+
 Why do we add a date? Well I am running this behind cloudflare, and Cloudflare caches any pictures or scripts to help speed up your site, well this is VERY nice we don't want the result of the dad joke API to be cached once, if we did that we'd get the same joke every time!
 
 ## The server.

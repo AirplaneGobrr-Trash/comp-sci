@@ -15,9 +15,10 @@ app.get('/url(/*)?', async (req, res) => {
   let buf = await ed.encode(arr)
   // fs.writeFileSync("encoded.png", buf)
 
-  let arr2 = await ed.decode(buf)
-  let data = await ed.ArrayToBuffer(arr2)
-  console.log(arr2, data.toString())
+  // let arr2 = await ed.decode(buf)
+  // let data = await ed.ArrayToBuffer(arr2)
+  // console.log(arr2, data.toString())
+  console.log("Sent!")
   res.type("png").send(buf)
 });
 
