@@ -1,7 +1,7 @@
-const express = require("express")
+const app = require("express").Router()
 const ed = require("./ed")
-const app = express()
 const fs = require("fs")
+const path = require("path")
 const axios = require("axios").default
 
 app.get('/url(/*)?', async (req, res) => {
@@ -26,6 +26,4 @@ app.get("/example", async (req, res)=>{
   res.sendFile(path.join(__dirname, "example.png"))
 })
 
-app.listen("3000", () => {
-  console.log(`Server running`);
-});
+module.exports = app
