@@ -6,7 +6,7 @@ const axios = require("axios").default
 
 app.get('/url(/*)?', async (req, res) => {
   console.log(req.query)
-  let url = req.url.split(")&url=").pop()
+  let url = req.url.split("url=").slice(1).join("url=")
   let resp = await axios.get(url, {headers: {Accept:"application/json"}})
   // console.log("Converting Buffer to Array.")
   let arr = await ed.BufferToArray(Buffer.from(JSON.stringify(resp.data)))
